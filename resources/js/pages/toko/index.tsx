@@ -2,8 +2,8 @@
  * Remark page: Daftar Toko — agregasi brandings + sort ASC/DESC per kolom.
  */
 import { Head, router } from '@inertiajs/react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
+import { BmdSortHeader } from '@/components/bmd-sort-header';
 import { formatPct, formatRp } from '@/lib/format';
 import { dashboard } from '@/routes';
 
@@ -75,60 +75,6 @@ function statusClass(status: string): string {
         'Disetujui Toko': 'bmd-badge-success',
     };
     return map[status] ?? 'bmd-badge-muted';
-}
-
-type SortHeaderProps = {
-    label: string;
-    column: SortKey;
-    sort: SortKey;
-    order: 'asc' | 'desc';
-    align?: 'left' | 'right';
-    onSort: (column: SortKey, order: 'asc' | 'desc') => void;
-};
-
-/**
- * Remark komponen: header kolom dengan tombol sort ASC / DESC.
- */
-function SortHeader({
-    label,
-    column,
-    sort,
-    order,
-    align = 'left',
-    onSort,
-}: SortHeaderProps) {
-    const activeAsc = sort === column && order === 'asc';
-    const activeDesc = sort === column && order === 'desc';
-
-    return (
-        <th className={align === 'right' ? 'text-right' : undefined}>
-            <div
-                className={`bmd-th-sort ${align === 'right' ? 'justify-end' : ''}`}
-            >
-                <span>{label}</span>
-                <span className="bmd-sort-btns">
-                    <button
-                        type="button"
-                        className={`bmd-sort-btn ${activeAsc ? 'is-active' : ''}`}
-                        title={`${label} naik (ASC)`}
-                        aria-label={`${label} ascending`}
-                        onClick={() => onSort(column, 'asc')}
-                    >
-                        <ChevronUp className="size-3.5" />
-                    </button>
-                    <button
-                        type="button"
-                        className={`bmd-sort-btn ${activeDesc ? 'is-active' : ''}`}
-                        title={`${label} turun (DESC)`}
-                        aria-label={`${label} descending`}
-                        onClick={() => onSort(column, 'desc')}
-                    >
-                        <ChevronDown className="size-3.5" />
-                    </button>
-                </span>
-            </div>
-        </th>
-    );
 }
 
 /** Remark komponen: halaman daftar toko. */
@@ -281,35 +227,35 @@ export default function TokoIndex({
                         <table className="bmd-table">
                             <thead>
                                 <tr>
-                                    <SortHeader
+                                    <BmdSortHeader
                                         label="NO"
                                         column="no"
                                         sort={filters.sort}
                                         order={filters.order}
                                         onSort={handleSort}
                                     />
-                                    <SortHeader
+                                    <BmdSortHeader
                                         label="Cust Id"
                                         column="customer_id"
                                         sort={filters.sort}
                                         order={filters.order}
                                         onSort={handleSort}
                                     />
-                                    <SortHeader
+                                    <BmdSortHeader
                                         label="Nama Toko"
                                         column="nama"
                                         sort={filters.sort}
                                         order={filters.order}
                                         onSort={handleSort}
                                     />
-                                    <SortHeader
+                                    <BmdSortHeader
                                         label="Cabang"
                                         column="cabang"
                                         sort={filters.sort}
                                         order={filters.order}
                                         onSort={handleSort}
                                     />
-                                    <SortHeader
+                                    <BmdSortHeader
                                         label="AVG Omzet"
                                         column="avg_omzet"
                                         sort={filters.sort}
@@ -317,7 +263,7 @@ export default function TokoIndex({
                                         align="right"
                                         onSort={handleSort}
                                     />
-                                    <SortHeader
+                                    <BmdSortHeader
                                         label="Total Cost Branding"
                                         column="total_cost"
                                         sort={filters.sort}
@@ -325,7 +271,7 @@ export default function TokoIndex({
                                         align="right"
                                         onSort={handleSort}
                                     />
-                                    <SortHeader
+                                    <BmdSortHeader
                                         label="Jumlah Branding"
                                         column="branding_count"
                                         sort={filters.sort}
@@ -333,7 +279,7 @@ export default function TokoIndex({
                                         align="right"
                                         onSort={handleSort}
                                     />
-                                    <SortHeader
+                                    <BmdSortHeader
                                         label="Status Branding"
                                         column="status"
                                         sort={filters.sort}

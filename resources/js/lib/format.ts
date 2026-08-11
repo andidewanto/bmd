@@ -42,6 +42,34 @@ export function formatPct(
     }).format(value)}%`;
 }
 
+/**
+ * Remark fungsi: format rupiah ringkas (Juta / Miliar) untuk progress budget.
+ */
+export function formatRpCompact(value: number | null | undefined): string {
+    if (value == null || Number.isNaN(value)) {
+        return '—';
+    }
+
+    const abs = Math.abs(value);
+    const sign = value < 0 ? '-' : '';
+
+    if (abs >= 1_000_000_000) {
+        const miliar = abs / 1_000_000_000;
+        return `${sign}Rp ${new Intl.NumberFormat('id-ID', {
+            maximumFractionDigits: miliar >= 10 ? 0 : 1,
+        }).format(miliar)} Miliar`;
+    }
+
+    if (abs >= 1_000_000) {
+        const juta = abs / 1_000_000;
+        return `${sign}Rp ${new Intl.NumberFormat('id-ID', {
+            maximumFractionDigits: juta >= 100 ? 0 : 1,
+        }).format(juta)} Juta`;
+    }
+
+    return `${sign}${formatRp(abs)}`;
+}
+
 /** Remark fungsi: tampilan dimensi katalog. */
 export function formatDimensi(dimCm: string | null | undefined): string {
     const dim = (dimCm ?? '').trim();

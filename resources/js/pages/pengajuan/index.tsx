@@ -3,8 +3,9 @@
  */
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ArrowLeft, Info, Plus, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { useFlashToast } from '@/hooks/use-flash-toast';
 import { formatRp, tokoNamaShort } from '@/lib/format';
 import {
     clearCart,
@@ -54,8 +55,7 @@ export default function PengajuanIndex({
     storageKeys,
     recent,
 }: Props) {
-    const { flash, errors } = usePage().props as {
-        flash?: { success?: string; error?: string };
+    const { errors } = usePage().props as {
         errors?: Record<string, string>;
     };
 
@@ -64,20 +64,16 @@ export default function PengajuanIndex({
     const [showRules, setShowRules] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
-    useEffect(() => {
-        if (flash?.success) {
-            toast.success(flash.success);
-            // Remark: setelah submit sukses, kosongkan cart lokal
-            clearCart(storageKeys.items);
-            setCart([]);
-        }
-        if (flash?.error) {
-            toast.error(flash.error);
-        }
-        if (errors?.items) {
-            toast.error(errors.items);
-        }
-    }, [flash?.success, flash?.error, errors?.items, storageKeys.items]);
+    // Remark: setelah submit sukses, kosongkan cart lokal
+    const handleFlashSuccess = useCallback(() => {
+        clearCart(storageKeys.items);
+        setCart([]);
+    }, [storageKeys.items]);
+
+    useFlashToast({
+        onSuccess: handleFlashSuccess,
+        extraError: errors?.items ?? null,
+    });
 
     useEffect(() => {
         setCart(loadCart(storageKeys.items));

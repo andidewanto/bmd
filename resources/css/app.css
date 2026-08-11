@@ -2,8 +2,9 @@
 
 @import 'tw-animate-css';
 
-/* Remark: style domain BMD (katalog + pengajuan) */
+/* Remark: style domain BMD (shared + katalog) */
 @import './bmd.css';
+@import './bmd-katalog.css';
 
 @source '../views';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';

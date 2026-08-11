@@ -44,13 +44,13 @@ export default function AdminMasterIndex({ masters }: Props) {
                         <Link
                             key={master.key}
                             href={master.href}
-                            className="bmd-panel group flex flex-col gap-2 p-4 transition hover:border-[#4e73df]/
+                            className="bmd-master-card group"
                         >
                             <div className="flex items-start justify-between gap-2">
-                                <h2 className="text-base font-bold text-[#5a5c69] group-hover:text-[#4e73df]">
+                                <h2 className="bmd-master-card-title">
                                     {master.title}
                                 </h2>
-                                <ChevronRight className="size-4 shrink-0 text-slate-400 group-hover:text-[#4e73df]" />
+                                <ChevronRight className="bmd-master-card-chevron size-4 shrink-0" />
                             </div>
                             <p className="text-sm leading-relaxed text-slate-500">
                                 {master.description}

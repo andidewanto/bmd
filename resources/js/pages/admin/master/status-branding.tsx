@@ -1,7 +1,7 @@
 /**
  * Remark page: Admin — master status branding + drag & drop urutan.
  */
-import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import {
     ArrowLeft,
     GripVertical,
@@ -11,7 +11,7 @@ import {
     X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { toast } from 'sonner';
+import { useFlashToast } from '@/hooks/use-flash-toast';
 import { dashboard } from '@/routes';
 
 type StatusRow = {
@@ -26,14 +26,12 @@ type Props = { items: StatusRow[] };
 
 /** Remark komponen: master status branding dengan reorder drag & drop. */
 export default function AdminStatusBrandingIndex({ items }: Props) {
-    const { flash } = usePage().props as {
-        flash?: { success?: string; error?: string };
-    };
     const [rows, setRows] = useState(items);
     const rowsRef = useRef(items);
     const [editing, setEditing] = useState<StatusRow | null>(null);
     const [dragId, setDragId] = useState<number | null>(null);
     const [savingOrder, setSavingOrder] = useState(false);
+    useFlashToast();
 
     const createForm = useForm({
         nama: '',
@@ -49,15 +47,6 @@ export default function AdminStatusBrandingIndex({ items }: Props) {
         setRows(items);
         rowsRef.current = items;
     }, [items]);
-
-    useEffect(() => {
-        if (flash?.success) {
-            toast.success(flash.success);
-        }
-        if (flash?.error) {
-            toast.error(flash.error);
-        }
-    }, [flash?.success, flash?.error]);
 
     /** Remark fungsi: buka form edit inline. */
     function startEdit(row: StatusRow) {

@@ -1,7 +1,7 @@
 /**
  * Remark page: Admin — form create/edit item katalog + kelola foto/thumbnail.
  */
-import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import type { PendingVisit } from '@inertiajs/core';
 import {
     ArrowLeft,
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { useFlashToast } from '@/hooks/use-flash-toast';
 import { dashboard } from '@/routes';
 
 type Photo = {
@@ -41,7 +42,12 @@ type Props = {
     item: Item | null;
     kategoriOptions: string[];
     satuanOptions: string[];
+    usiaBrandingOptions?: number[];
+    defaults?: { no: number; kode: string } | null;
+    nextKodeByKategori?: Record<string, string>;
 };
+
+const DEFAULT_USIA = [12, 24, 26, 48];
 
 /** Remark fungsi: normalisasi satuan legacy → Unit | m2. */
 function normalizeSatuan(value: string | null | undefined): 'Unit' | 'm2' {
@@ -49,15 +55,44 @@ function normalizeSatuan(value: string | null | undefined): 'Unit' | 'm2' {
     return s === 'm2' ? 'm2' : 'Unit';
 }
 
+/** Remark fungsi: pecah dim_cm "T x P x L" → 3 field. */
+function parseDimCm(dimCm: string | null | undefined): {
+    tinggi: string;
+    panjang: string;
+    lebar: string;
+} {
+    const parts = (dimCm ?? '')
+        .split(/x/i)
+        .map((p) => p.trim())
+        .filter(Boolean);
+    return {
+        tinggi: parts[0] ?? '',
+        panjang: parts[1] ?? '',
+        lebar: parts[2] ?? '',
+    };
+}
+
+/** Remark fungsi: harga tampilan tunggal (min=max → satu nilai). */
+function singleHarga(
+    min: number | null | undefined,
+    max: number | null | undefined,
+): string | number {
+    if (min != null && max != null && Math.abs(min - max) < 0.01) {
+        return min;
+    }
+    return max ?? min ?? '';
+}
+
 export default function AdminKatalogForm({
     item,
     kategoriOptions,
     satuanOptions = ['Unit', 'm2'],
+    usiaBrandingOptions = DEFAULT_USIA,
+    defaults = null,
+    nextKodeByKategori = {},
 }: Props) {
     const isEdit = item != null;
-    const { flash } = usePage().props as {
-        flash?: { success?: string; error?: string };
-    };
+    useFlashToast();
     const [asThumbnail, setAsThumbnail] = useState(false);
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -68,31 +103,45 @@ export default function AdminKatalogForm({
     const bypassLeaveRef = useRef(false);
     const isDirtyRef = useRef(false);
 
+    const initialDim = parseDimCm(item?.dim_cm);
+    const usiaOptions = Array.from(
+        new Set([
+            ...usiaBrandingOptions,
+            ...(item?.lifetime != null ? [item.lifetime] : []),
+        ]),
+    ).sort((a, b) => a - b);
+
     const form = useForm({
-        no: item?.no ?? 1,
-        kode: item?.kode ?? '',
+        no: item?.no ?? defaults?.no ?? 1,
+        kode: item?.kode ?? defaults?.kode ?? '',
         kategori: item?.kategori ?? kategoriOptions[0] ?? '',
         nama_branding: item?.nama_branding ?? '',
         spek_branding: item?.spek_branding ?? '',
         satuan: normalizeSatuan(item?.satuan),
         tipe_toko: item?.tipe_toko ?? 'ALL',
         lifetime: item?.lifetime ?? '',
-        dim_cm: item?.dim_cm ?? '',
-        harga_min: item?.harga_min ?? '',
-        harga_max: item?.harga_max ?? '',
+        dim_tinggi: initialDim.tinggi,
+        dim_panjang: initialDim.panjang,
+        dim_lebar: initialDim.lebar,
+        harga: singleHarga(item?.harga_min, item?.harga_max),
         foto: null as File | null,
     });
 
     isDirtyRef.current = form.isDirty;
 
-    useEffect(() => {
-        if (flash?.success) {
-            toast.success(flash.success);
+    /** Remark: ganti kategori di create → regenerate kode otomatis. */
+    function onKategoriChange(value: string) {
+        if (!isEdit) {
+            const next = nextKodeByKategori[value];
+            form.setData((data) => ({
+                ...data,
+                kategori: value,
+                kode: next || data.kode,
+            }));
+            return;
         }
-        if (flash?.error) {
-            toast.error(flash.error);
-        }
-    }, [flash?.success, flash?.error]);
+        form.setData('kategori', value);
+    }
 
     useEffect(() => {
         return () => {
@@ -135,20 +184,28 @@ export default function AdminKatalogForm({
 
     /** Remark fungsi: normalisasi angka kosong → null sebelum submit. */
     function payload() {
+        const harga =
+            form.data.harga === '' || form.data.harga === null
+                ? null
+                : Number(form.data.harga);
+
         return {
-            ...form.data,
+            no: form.data.no,
+            kode: form.data.kode,
+            kategori: form.data.kategori,
+            nama_branding: form.data.nama_branding,
+            spek_branding: form.data.spek_branding,
+            satuan: form.data.satuan,
+            tipe_toko: form.data.tipe_toko,
             lifetime:
                 form.data.lifetime === '' || form.data.lifetime === null
                     ? null
                     : Number(form.data.lifetime),
-            harga_min:
-                form.data.harga_min === '' || form.data.harga_min === null
-                    ? null
-                    : Number(form.data.harga_min),
-            harga_max:
-                form.data.harga_max === '' || form.data.harga_max === null
-                    ? null
-                    : Number(form.data.harga_max),
+            dim_tinggi: form.data.dim_tinggi,
+            dim_panjang: form.data.dim_panjang,
+            dim_lebar: form.data.dim_lebar,
+            harga,
+            foto: form.data.foto,
         };
     }
 
@@ -309,28 +366,24 @@ export default function AdminKatalogForm({
                         <Field label="No">
                             <input
                                 type="number"
-                                className="bmd-admin-input"
+                                className="bmd-admin-input bg-slate-50"
                                 value={form.data.no}
-                                onChange={(e) =>
-                                    form.setData('no', Number(e.target.value))
-                                }
-                                required
+                                readOnly
+                                title="Otomatis sesuai jumlah item"
                             />
                         </Field>
                         <Field label="Kode">
                             <input
-                                className="bmd-admin-input"
+                                className="bmd-admin-input bg-slate-50"
                                 value={form.data.kode}
-                                onChange={(e) =>
-                                    form.setData('kode', e.target.value)
-                                }
-                                required
+                                readOnly
+                                title="Otomatis: huruf kategori + nomor urut"
                             />
                         </Field>
                         <Field label="Kategori">
                             <AdminSelect
                                 value={form.data.kategori}
-                                onChange={(v) => form.setData('kategori', v)}
+                                onChange={onKategoriChange}
                                 required
                             >
                                 <option value="" disabled>
@@ -394,47 +447,91 @@ export default function AdminKatalogForm({
                                 }
                             />
                         </Field>
-                        <Field label="Lifetime (bulan)">
+                        <Field label="Usia Branding (bulan)">
+                            <AdminSelect
+                                value={
+                                    form.data.lifetime === '' ||
+                                    form.data.lifetime === null
+                                        ? ''
+                                        : String(form.data.lifetime)
+                                }
+                                onChange={(v) =>
+                                    form.setData(
+                                        'lifetime',
+                                        v === '' ? '' : Number(v),
+                                    )
+                                }
+                            >
+                                <option value="">Pilih usia</option>
+                                {usiaOptions.map((m) => (
+                                    <option key={m} value={m}>
+                                        {m} bulan
+                                    </option>
+                                ))}
+                            </AdminSelect>
+                        </Field>
+                        <Field label="Harga">
                             <input
                                 type="number"
                                 className="bmd-admin-input"
-                                value={form.data.lifetime}
+                                value={form.data.harga}
                                 onChange={(e) =>
-                                    form.setData('lifetime', e.target.value)
+                                    form.setData('harga', e.target.value)
                                 }
-                            />
-                        </Field>
-                        <Field label="Dimensi (cm)">
-                            <input
-                                className="bmd-admin-input"
-                                value={form.data.dim_cm}
-                                onChange={(e) =>
-                                    form.setData('dim_cm', e.target.value)
-                                }
-                            />
-                        </Field>
-                        <Field label="Harga min">
-                            <input
-                                type="number"
-                                className="bmd-admin-input"
-                                value={form.data.harga_min}
-                                onChange={(e) =>
-                                    form.setData('harga_min', e.target.value)
-                                }
-                            />
-                        </Field>
-                        <Field label="Harga max">
-                            <input
-                                type="number"
-                                className="bmd-admin-input"
-                                value={form.data.harga_max}
-                                onChange={(e) =>
-                                    form.setData('harga_max', e.target.value)
-                                }
+                                min={0}
+                                step="1"
                             />
                         </Field>
                     </div>
-                    <Field label="Spek branding">
+
+                    <div>
+                        <span className="mb-1 block text-sm font-semibold text-slate-600">
+                            Dimensi (cm)
+                        </span>
+                        <div className="grid gap-3 sm:grid-cols-3">
+                            <Field label="Tinggi">
+                                <input
+                                    className="bmd-admin-input"
+                                    value={form.data.dim_tinggi}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'dim_tinggi',
+                                            e.target.value,
+                                        )
+                                    }
+                                    placeholder="contoh: 200"
+                                />
+                            </Field>
+                            <Field label="Panjang">
+                                <input
+                                    className="bmd-admin-input"
+                                    value={form.data.dim_panjang}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'dim_panjang',
+                                            e.target.value,
+                                        )
+                                    }
+                                    placeholder="contoh: 280"
+                                />
+                            </Field>
+                            <Field label="Lebar">
+                                <input
+                                    className="bmd-admin-input"
+                                    value={form.data.dim_lebar}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'dim_lebar',
+                                            e.target.value,
+                                        )
+                                    }
+                                    placeholder="contoh: 40"
+                                />
+                            </Field>
+                        </div>
+                    </div>
+
+                    <Field label="Detail Branding">
                         <textarea
                             className="bmd-admin-input min-h-28"
                             value={form.data.spek_branding}
@@ -613,15 +710,15 @@ export default function AdminKatalogForm({
                     </div>
                 </div>
 
-                {/* Remark: aksi bawah — batalkan + simpan (lebih besar) */}
-                <div className="bmd-admin-actions">
+                {/* Remark: aksi bawah — batalkan + simpan, berdampingan di tengah */}
+                <div className="bmd-admin-actions bmd-admin-actions--center">
                     <button
                         type="button"
                         className="bmd-btn-cancel"
                         disabled={saving || uploading || !form.isDirty}
                         onClick={discardChanges}
                     >
-                        Batalkan Perubahan
+                        Batalkan
                     </button>
                     <button
                         type="submit"

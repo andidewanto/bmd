@@ -1,15 +1,19 @@
 /**
- * Remark page: Katalog Branding — daftar item + add-to-cart pengajuan (~75% UI BMD2).
+ * Remark page: Katalog Branding — daftar item + add-to-cart pengajuan.
  */
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ShoppingCart } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { BmdWarningDialog } from '@/components/bmd-warning-dialog';
+import { KatalogCard } from '@/components/katalog/katalog-card';
+import { KatalogFilters } from '@/components/katalog/katalog-filters';
+import type { DimState } from '@/components/katalog/katalog-m2-fields';
 import {
     KatalogLightbox,
     type KatalogLightboxItem,
 } from '@/components/katalog-lightbox';
-import { formatDimensi, formatHargaAngka } from '@/lib/format';
+import { useFlashToast } from '@/hooks/use-flash-toast';
 import {
     clearCart,
     countById,
@@ -20,7 +24,6 @@ import {
     type StoredToko,
 } from '@/lib/pengajuan-cart';
 import {
-    calcM2Price,
     validateAddBranding,
     validateDimensions,
     type CartRow,
@@ -33,6 +36,15 @@ type KatalogItem = KatalogLightboxItem & {
     is_m2: boolean;
 };
 
+type Pagination = {
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from: number | null;
+    to: number | null;
+};
+
 type Props = {
     items: KatalogItem[];
     filters: { q: string; kategori: string; customer_id?: string };
@@ -40,6 +52,8 @@ type Props = {
     kategoriList: { kategori: string; item_count: number }[];
     toko: StoredToko | null;
     storageKeys: { items: string; toko: string };
+    pagination: Pagination;
+    appEnv: string;
 };
 
 /** Remark komponen: halaman katalog. */
@@ -50,29 +64,21 @@ export default function KatalogIndex({
     kategoriList,
     toko,
     storageKeys,
+    pagination,
+    appEnv,
 }: Props) {
-    const { flash } = usePage().props as {
-        flash?: { success?: string; error?: string };
+    const { bmd } = usePage().props as {
+        bmd?: { auth_bypass?: boolean };
     };
 
     const [search, setSearch] = useState(filters.q || '');
     const [kategori, setKategori] = useState(filters.kategori || '');
     const [cart, setCart] = useState<CartRow[]>([]);
-    const [dims, setDims] = useState<
-        Record<number, { panjang: string; lebar: string }>
-    >({});
+    const [dims, setDims] = useState<Record<number, DimState>>({});
     const [warning, setWarning] = useState<string | null>(null);
     const [lightboxItem, setLightboxItem] = useState<KatalogItem | null>(null);
 
-    // Remark: sync flash server → toast
-    useEffect(() => {
-        if (flash?.success) {
-            toast.success(flash.success);
-        }
-        if (flash?.error) {
-            toast.error(flash.error);
-        }
-    }, [flash?.success, flash?.error]);
+    useFlashToast();
 
     // Remark: hydrate cart + persist toko aktif ke sessionStorage
     useEffect(() => {
@@ -105,23 +111,26 @@ export default function KatalogIndex({
         return map;
     }, [items]);
 
-    /** Remark fungsi: apply filter via Inertia visit. */
-    function applyFilters(next: { q?: string; kategori?: string }) {
-        router.get(
-            '/katalog',
-            {
-                q: next.q ?? search,
-                kategori: next.kategori ?? kategori,
-                customer_id: toko?.customer_id,
-            },
-            { preserveState: true, replace: true },
-        );
-    }
+    /** Remark: tombol debug cart hanya di local / auth bypass. */
+    const showDebugCart =
+        appEnv === 'local' || Boolean(bmd?.auth_bypass);
 
-    /** Remark fungsi: tampilkan warning penting di tengah halaman. */
-    function showWarning(message: string) {
-        setWarning(message);
-    }
+    /** Remark fungsi: apply filter/page via Inertia. */
+    const applyQuery = useCallback(
+        (next: { q?: string; kategori?: string; page?: number }) => {
+            router.get(
+                '/katalog',
+                {
+                    q: next.q ?? search,
+                    kategori: next.kategori ?? kategori,
+                    customer_id: toko?.customer_id,
+                    page: next.page ?? 1,
+                },
+                { preserveState: true, replace: true },
+            );
+        },
+        [search, kategori, toko?.customer_id],
+    );
 
     /** Remark fungsi: tambah item ke cart dengan validasi aturan. */
     function addToCart(item: KatalogItem) {
@@ -135,7 +144,7 @@ export default function KatalogIndex({
                 Number(dim.lebar),
             );
             if (!dimCheck.ok) {
-                showWarning(dimCheck.message || 'Dimensi tidak valid.');
+                setWarning(dimCheck.message || 'Dimensi tidak valid.');
                 return;
             }
             panjang = Number(dim.panjang);
@@ -149,7 +158,7 @@ export default function KatalogIndex({
             tokoTipe: toko?.tipe_toko || 'ALL',
         });
         if (!check.ok) {
-            showWarning(check.message || 'Tidak dapat menambahkan item.');
+            setWarning(check.message || 'Tidak dapat menambahkan item.');
             return;
         }
 
@@ -172,7 +181,6 @@ export default function KatalogIndex({
         <>
             <Head title="Katalog Branding" />
             <div className="bmd-page flex h-full flex-1 flex-col gap-4 overflow-x-auto p-4">
-                {/* Remark section: page header */}
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <h1 className="text-xl font-bold text-[#5a5c69]">
                         Katalog Branding
@@ -191,7 +199,6 @@ export default function KatalogIndex({
                     </div>
                 )}
 
-                {/* Remark section: statistik ringkas */}
                 <div className="bmd-stat-grid">
                     <div className="bmd-stat-card">
                         <div className="bmd-stat-label">Total Item</div>
@@ -211,37 +218,20 @@ export default function KatalogIndex({
                     </div>
                 </div>
 
-                {/* Remark section: panel daftar + filter */}
                 <div className="bmd-panel">
                     <div className="bmd-panel-header">
                         <h2 className="bmd-panel-title">Daftar Katalog</h2>
-                        <div className="bmd-filters">
-                            <input
-                                type="search"
-                                placeholder="Cari kode / nama / spek… (Enter)"
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        applyFilters({ q: search });
-                                    }
-                                }}
-                            />
-                            <select
-                                value={kategori}
-                                onChange={(e) => {
-                                    setKategori(e.target.value);
-                                    applyFilters({ kategori: e.target.value });
-                                }}
-                            >
-                                <option value="">Semua kategori</option>
-                                {kategoriList.map((k) => (
-                                    <option key={k.kategori} value={k.kategori}>
-                                        {k.kategori} ({k.item_count})
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+                        <KatalogFilters
+                            search={search}
+                            kategori={kategori}
+                            kategoriList={kategoriList}
+                            onSearchChange={setSearch}
+                            onSearchSubmit={() => applyQuery({ q: search })}
+                            onKategoriChange={(value) => {
+                                setKategori(value);
+                                applyQuery({ kategori: value, page: 1 });
+                            }}
+                        />
                     </div>
 
                     <div className="katalog-list-body">
@@ -251,198 +241,77 @@ export default function KatalogIndex({
                             </div>
                         ) : (
                             <div className="katalog-card-grid">
-                                {items.map((item) => {
-                                    const qty = counts[item.id] || 0;
-                                    const dim =
-                                        dims[item.id] || {
-                                            panjang: '',
-                                            lebar: '',
-                                        };
-                                    // Remark: estimasi = (tinggi×lebar / 10000) × harga_max
-                                    const estimasi = item.is_m2
-                                        ? calcM2Price(
-                                              Number(dim.panjang),
-                                              Number(dim.lebar),
-                                              item.harga_max,
-                                          )
-                                        : null;
-                                    return (
-                                        <article
-                                            key={item.id}
-                                            className="katalog-card"
-                                        >
-                                            <button
-                                                type="button"
-                                                className="katalog-card-media"
-                                                aria-label={`Lihat detail ${item.kode}`}
-                                                onClick={() =>
-                                                    setLightboxItem(item)
-                                                }
-                                            >
-                                                <img
-                                                    src={item.foto_url}
-                                                    alt={`${item.kode} - ${item.nama_branding}`}
-                                                    className="katalog-card-img"
-                                                    onError={(e) => {
-                                                        (
-                                                            e.target as HTMLImageElement
-                                                        ).src =
-                                                            '/assets/katalog/placeholder.svg';
-                                                    }}
-                                                />
-                                            </button>
-                                            <div className="katalog-card-body">
-                                                <div>
-                                                    {/* Remark: judul max 2 baris — KODE - Nama */}
-                                                    <h2 className="katalog-card-name">
-                                                        {item.kode} -{' '}
-                                                        {item.nama_branding}
-                                                    </h2>
-                                                    {!item.is_m2 && (
-                                                        <div className="katalog-card-detail-row">
-                                                            <span className="katalog-card-detail-label">
-                                                                Dimensi
-                                                            </span>
-                                                            <span>:</span>
-                                                            <span>
-                                                                {formatDimensi(
-                                                                    item.dim_cm,
-                                                                )}
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                    <div className="katalog-card-detail-row">
-                                                        <span className="katalog-card-detail-label">
-                                                            Harga
-                                                        </span>
-                                                        <span>:</span>
-                                                        <span>
-                                                            {formatHargaAngka(
-                                                                item.harga_min,
-                                                                item.harga_max,
-                                                            )}
-                                                        </span>
-                                                    </div>
-                                                    {item.is_m2 && (
-                                                        <div className="katalog-m2-form">
-                                                            <p className="katalog-m2-form-title">
-                                                                Dimensi branding
-                                                            </p>
-                                                            <div className="katalog-m2-fields">
-                                                                <input
-                                                                    type="number"
-                                                                    min={0.01}
-                                                                    step={0.01}
-                                                                    placeholder="Tinggi (cm)"
-                                                                    value={
-                                                                        dim.panjang
-                                                                    }
-                                                                    onChange={(
-                                                                        e,
-                                                                    ) =>
-                                                                        setDims(
-                                                                            (
-                                                                                prev,
-                                                                            ) => ({
-                                                                                ...prev,
-                                                                                [item.id]:
-                                                                                    {
-                                                                                        panjang:
-                                                                                            e
-                                                                                                .target
-                                                                                                .value,
-                                                                                        lebar:
-                                                                                            prev[
-                                                                                                item
-                                                                                                    .id
-                                                                                            ]
-                                                                                                ?.lebar ||
-                                                                                            '',
-                                                                                    },
-                                                                            }),
-                                                                        )
-                                                                    }
-                                                                />
-                                                                <input
-                                                                    type="number"
-                                                                    min={0.01}
-                                                                    step={0.01}
-                                                                    placeholder="Lebar (cm)"
-                                                                    value={
-                                                                        dim.lebar
-                                                                    }
-                                                                    onChange={(
-                                                                        e,
-                                                                    ) =>
-                                                                        setDims(
-                                                                            (
-                                                                                prev,
-                                                                            ) => ({
-                                                                                ...prev,
-                                                                                [item.id]:
-                                                                                    {
-                                                                                        panjang:
-                                                                                            prev[
-                                                                                                item
-                                                                                                    .id
-                                                                                            ]
-                                                                                                ?.panjang ||
-                                                                                            '',
-                                                                                        lebar: e
-                                                                                            .target
-                                                                                            .value,
-                                                                                    },
-                                                                            }),
-                                                                        )
-                                                                    }
-                                                                />
-                                                            </div>
-                                                            {estimasi !=
-                                                                null && (
-                                                                <p className="katalog-m2-estimasi">
-                                                                    Estimasi
-                                                                    Harga :{' '}
-                                                                    <strong>
-                                                                        {new Intl.NumberFormat(
-                                                                            'id-ID',
-                                                                        ).format(
-                                                                            Math.round(
-                                                                                estimasi,
-                                                                            ),
-                                                                        )}
-                                                                    </strong>
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className="katalog-add-wrap">
-                                                    <button
-                                                        type="button"
-                                                        className="katalog-add-pengajuan"
-                                                        onClick={() =>
-                                                            addToCart(item)
-                                                        }
-                                                    >
-                                                        Tambahkan ke Pengajuan
-                                                    </button>
-                                                    {qty > 0 && (
-                                                        <span className="katalog-add-badge">
-                                                            {qty}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </article>
-                                    );
-                                })}
+                                {items.map((item) => (
+                                    <KatalogCard
+                                        key={item.id}
+                                        item={item}
+                                        qty={counts[item.id] || 0}
+                                        dim={
+                                            dims[item.id] || {
+                                                panjang: '',
+                                                lebar: '',
+                                            }
+                                        }
+                                        onDimChange={(next) =>
+                                            setDims((prev) => ({
+                                                ...prev,
+                                                [item.id]: next,
+                                            }))
+                                        }
+                                        onOpenLightbox={() =>
+                                            setLightboxItem(item)
+                                        }
+                                        onAdd={() => addToCart(item)}
+                                    />
+                                ))}
                             </div>
                         )}
                     </div>
+
+                    {pagination.last_page > 1 && (
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 px-4 py-3 text-sm">
+                            <span className="text-slate-500">
+                                Menampilkan {pagination.from ?? 0}–
+                                {pagination.to ?? 0} dari {pagination.total}
+                            </span>
+                            <div className="flex gap-1">
+                                <button
+                                    type="button"
+                                    className="rounded border px-2 py-1 disabled:opacity-40"
+                                    disabled={pagination.current_page <= 1}
+                                    onClick={() =>
+                                        applyQuery({
+                                            page: pagination.current_page - 1,
+                                        })
+                                    }
+                                >
+                                    Prev
+                                </button>
+                                <span className="px-2 py-1 text-slate-600">
+                                    {pagination.current_page} /{' '}
+                                    {pagination.last_page}
+                                </span>
+                                <button
+                                    type="button"
+                                    className="rounded border px-2 py-1 disabled:opacity-40"
+                                    disabled={
+                                        pagination.current_page >=
+                                        pagination.last_page
+                                    }
+                                    onClick={() =>
+                                        applyQuery({
+                                            page: pagination.current_page + 1,
+                                        })
+                                    }
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-                {/* Remark: helper clear cart saat debugging */}
-                {cartTotalQty > 0 && (
+                {showDebugCart && cartTotalQty > 0 && (
                     <button
                         type="button"
                         className="self-start text-xs text-slate-500 underline"
@@ -452,36 +321,15 @@ export default function KatalogIndex({
                             toast.message('Cart dikosongkan');
                         }}
                     >
-                        Kosongkan cart lokal
+                        Kosongkan cart lokal (debug)
                     </button>
                 )}
             </div>
 
-            {/* Remark: warning aturan branding — center screen */}
-            {warning && (
-                <div
-                    className="bmd-warning-overlay"
-                    role="alertdialog"
-                    aria-modal="true"
-                    aria-labelledby="katalog-warning-title"
-                    onClick={() => setWarning(null)}
-                >
-                    <div
-                        className="bmd-warning-modal"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <h3 id="katalog-warning-title">Peringatan</h3>
-                        <p>{warning}</p>
-                        <button
-                            type="button"
-                            className="bmd-warning-ok"
-                            onClick={() => setWarning(null)}
-                        >
-                            Mengerti
-                        </button>
-                    </div>
-                </div>
-            )}
+            <BmdWarningDialog
+                message={warning}
+                onClose={() => setWarning(null)}
+            />
 
             <KatalogLightbox
                 item={lightboxItem}

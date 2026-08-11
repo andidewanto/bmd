@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\KatalogItem;
 use App\Models\KatalogItemPhoto;
 use App\Models\Toko;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -12,20 +13,21 @@ use Inertia\Response;
 /**
  * KatalogController
  *
- * Remark kelas: halaman katalog branding (user) + data untuk lightbox.
+ * Remark kelas: halaman katalog branding (user) + detail lazy untuk lightbox.
  */
 class KatalogController extends Controller
 {
     /**
-     * Remark fungsi: tampilkan daftar katalog + filter kategori/search + toko aktif.
+     * Remark fungsi: tampilkan daftar katalog (paginated) + filter.
      */
     public function index(Request $request): Response
     {
         $search = trim((string) $request->query('q', ''));
         $kategori = trim((string) $request->query('kategori', ''));
         $customerId = trim((string) $request->query('customer_id', ''));
+        $perPage = 12;
 
-        $query = KatalogItem::query()->with('photos')->orderBy('no');
+        $query = KatalogItem::query()->orderBy('no');
 
         if ($kategori !== '') {
             $query->where('kategori', $kategori);
@@ -39,7 +41,12 @@ class KatalogController extends Controller
             });
         }
 
-        $items = $query->get()->map(fn (KatalogItem $item) => $this->mapItem($item))->values();
+        $paginator = $query->paginate($perPage)->withQueryString();
+
+        // Remark: list ringan — tanpa gallery penuh (lazy di /katalog/{id}/detail)
+        $items = $paginator->getCollection()
+            ->map(fn (KatalogItem $item) => $this->mapItemList($item))
+            ->values();
 
         $kategoriList = KatalogItem::query()
             ->selectRaw('kategori, COUNT(*) as item_count')
@@ -67,31 +74,33 @@ class KatalogController extends Controller
                 'items' => config('bmd.pengajuan_storage_key'),
                 'toko' => config('bmd.pengajuan_toko_storage_key'),
             ],
+            'pagination' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+                'from' => $paginator->firstItem(),
+                'to' => $paginator->lastItem(),
+            ],
+            'appEnv' => app()->environment(),
         ]);
     }
 
     /**
+     * Remark fungsi: JSON detail + gallery foto untuk lightbox (lazy).
+     */
+    public function detail(KatalogItem $katalog): JsonResponse
+    {
+        return response()->json($this->mapItemDetail($katalog));
+    }
+
+    /**
+     * Remark fungsi: payload list (tanpa full photos).
+     *
      * @return array<string, mixed>
      */
-    protected function mapItem(KatalogItem $item): array
+    protected function mapItemList(KatalogItem $item): array
     {
-        $item->loadMissing('photos');
-
-        $photos = $item->photos->map(fn (KatalogItemPhoto $p) => [
-            'id' => $p->id,
-            'url' => $p->url(),
-            'is_thumbnail' => $p->is_thumbnail,
-        ])->values();
-
-        // Remark: pastikan minimal ada 1 foto (thumbnail/legacy) untuk lightbox
-        if ($photos->isEmpty()) {
-            $photos = collect([[
-                'id' => 0,
-                'url' => $item->fotoUrl(),
-                'is_thumbnail' => true,
-            ]]);
-        }
-
         return [
             'id' => $item->id,
             'no' => $item->no,
@@ -108,6 +117,35 @@ class KatalogController extends Controller
             'harga_min' => $item->harga_min !== null ? (float) $item->harga_min : null,
             'harga_max' => $item->harga_max !== null ? (float) $item->harga_max : null,
             'is_m2' => $item->isM2(),
+            'photos' => [],
+        ];
+    }
+
+    /**
+     * Remark fungsi: payload detail + gallery lengkap.
+     *
+     * @return array<string, mixed>
+     */
+    protected function mapItemDetail(KatalogItem $item): array
+    {
+        $item->loadMissing('photos');
+
+        $photos = $item->photos->map(fn (KatalogItemPhoto $p) => [
+            'id' => $p->id,
+            'url' => $p->url(),
+            'is_thumbnail' => $p->is_thumbnail,
+        ])->values();
+
+        if ($photos->isEmpty()) {
+            $photos = collect([[
+                'id' => 0,
+                'url' => $item->fotoUrl(),
+                'is_thumbnail' => true,
+            ]]);
+        }
+
+        return [
+            ...$this->mapItemList($item),
             'photos' => $photos,
         ];
     }

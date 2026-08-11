@@ -31,13 +31,16 @@ class BrandingSeeder extends Seeder
         $rows = json_decode(File::get($path), true, 512, JSON_THROW_ON_ERROR);
 
         foreach ($rows as $row) {
+            $status = $row['status'] ?? null;
+            $createdAt = $row['created_at'] ?? now();
+
             Branding::query()->updateOrCreate(
                 ['id' => $row['id']],
                 [
                     'customer_id' => $row['customer_id'] ?? null,
                     'nama_toko' => $row['nama_toko'] ?? null,
                     'created_by' => $row['created_by'] ?? null,
-                    'status' => $row['status'] ?? null,
+                    'status' => $status,
                     'total_cost' => $row['total_cost'] ?? null,
                     'average_omzet' => $row['average_omzet'] ?? null,
                     'branding_type_id' => $row['branding_type_id'] ?? null,
@@ -47,8 +50,12 @@ class BrandingSeeder extends Seeder
                     'handled_by' => $row['handled_by'] ?? null,
                     'po_no' => $row['po_no'] ?? null,
                     'pb_no' => $row['pb_no'] ?? null,
-                    'created_at' => $row['created_at'] ?? now(),
+                    'created_at' => $createdAt,
                     'updated_at' => $row['updated_at'] ?? now(),
+                    // Remark: proxy tanggal pemasangan sampai ada detail item branding
+                    'installed_at' => $status === 'Penjadwalan Branding'
+                        ? ($row['installed_at'] ?? $createdAt)
+                        : ($row['installed_at'] ?? null),
                 ],
             );
         }

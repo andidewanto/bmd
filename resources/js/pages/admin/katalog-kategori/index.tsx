@@ -1,15 +1,17 @@
 /**
  * Remark page: Admin — master data kategori katalog.
  */
-import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import { ArrowLeft, Pencil, Plus, Trash2, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
+import { useFlashToast } from '@/hooks/use-flash-toast';
 import { dashboard } from '@/routes';
 
 type Kategori = {
     id: number;
     nama: string;
+    kode: string;
     sort_order: number;
     is_active: boolean;
     item_count: number;
@@ -17,49 +19,167 @@ type Kategori = {
 
 type Props = { items: Kategori[] };
 
+type EditFormData = {
+    nama: string;
+    kode: string;
+    sort_order: number | '';
+    is_active: boolean;
+};
+
+/** Remark komponen: form edit inline (komponen terpisah agar React Compiler track props). */
+function KategoriEditRow({
+    row,
+    onCancel,
+}: {
+    row: Kategori;
+    onCancel: () => void;
+}) {
+    const form = useForm<EditFormData>({
+        nama: row.nama,
+        kode: row.kode,
+        sort_order: row.sort_order,
+        is_active: row.is_active,
+    });
+
+    function submit(e: React.FormEvent) {
+        e.preventDefault();
+        form.transform((data) => ({
+            nama: data.nama.trim(),
+            kode: data.kode.trim().toUpperCase(),
+            sort_order:
+                data.sort_order === '' || data.sort_order === null
+                    ? null
+                    : Number(data.sort_order),
+            is_active: Boolean(data.is_active),
+        }));
+        form.put(`/admin/katalog/kategori/${row.id}`, {
+            preserveScroll: true,
+            onSuccess: () => onCancel(),
+            onError: (errors) => {
+                const first = Object.values(errors)[0];
+                toast.error(
+                    typeof first === 'string'
+                        ? first
+                        : 'Gagal menyimpan kategori.',
+                );
+            },
+            onFinish: () => form.transform((d) => d),
+        });
+    }
+
+    return (
+        <td colSpan={6}>
+            <form
+                onSubmit={submit}
+                className="flex flex-wrap items-end gap-3 py-1"
+            >
+                <label className="w-24 text-sm">
+                    <span className="mb-1 block font-semibold">Urutan</span>
+                    <input
+                        type="number"
+                        className="bmd-admin-input"
+                        value={form.data.sort_order}
+                        onChange={(e) =>
+                            form.setData(
+                                'sort_order',
+                                e.target.value === ''
+                                    ? ''
+                                    : Number(e.target.value),
+                            )
+                        }
+                    />
+                    {form.errors.sort_order && (
+                        <span className="mt-1 block text-xs text-red-600">
+                            {form.errors.sort_order}
+                        </span>
+                    )}
+                </label>
+                <label className="w-24 text-sm">
+                    <span className="mb-1 block font-semibold">Kode</span>
+                    <input
+                        className="bmd-admin-input uppercase"
+                        value={form.data.kode}
+                        onChange={(e) =>
+                            form.setData(
+                                'kode',
+                                e.target.value.toUpperCase().replace(/[^A-Z0-9]/gi, ''),
+                            )
+                        }
+                        maxLength={5}
+                        required
+                        title="Huruf/angka, diawali huruf (contoh: B, C, PT)"
+                    />
+                    {form.errors.kode && (
+                        <span className="mt-1 block text-xs text-red-600">
+                            {form.errors.kode}
+                        </span>
+                    )}
+                </label>
+                <label className="min-w-[12rem] flex-1 text-sm">
+                    <span className="mb-1 block font-semibold">Nama</span>
+                    <input
+                        className="bmd-admin-input"
+                        value={form.data.nama}
+                        onChange={(e) => form.setData('nama', e.target.value)}
+                        required
+                    />
+                    {form.errors.nama && (
+                        <span className="mt-1 block text-xs text-red-600">
+                            {form.errors.nama}
+                        </span>
+                    )}
+                </label>
+                <label className="flex items-center gap-2 pb-2 text-sm font-semibold">
+                    <input
+                        type="checkbox"
+                        checked={form.data.is_active}
+                        onChange={(e) =>
+                            form.setData('is_active', e.target.checked)
+                        }
+                    />
+                    Aktif
+                </label>
+                <button
+                    type="submit"
+                    className="bmd-btn-primary"
+                    disabled={form.processing}
+                >
+                    Simpan
+                </button>
+                <button
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded border px-2 py-1 text-sm"
+                    onClick={onCancel}
+                >
+                    <X className="size-3.5" />
+                    Batal
+                </button>
+            </form>
+        </td>
+    );
+}
+
 export default function AdminKatalogKategoriIndex({ items }: Props) {
-    const { flash } = usePage().props as {
-        flash?: { success?: string; error?: string };
-    };
-    const [editing, setEditing] = useState<Kategori | null>(null);
+    const [editingId, setEditingId] = useState<number | null>(null);
+    useFlashToast();
 
     const createForm = useForm({
         nama: '',
-        sort_order: '',
+        kode: '',
+        sort_order: '' as number | '',
         is_active: true,
     });
-
-    const editForm = useForm({
-        nama: '',
-        sort_order: 0,
-        is_active: true,
-    });
-
-    useEffect(() => {
-        if (flash?.success) {
-            toast.success(flash.success);
-        }
-        if (flash?.error) {
-            toast.error(flash.error);
-        }
-    }, [flash?.success, flash?.error]);
-
-    /** Remark fungsi: buka form edit inline. */
-    function startEdit(row: Kategori) {
-        setEditing(row);
-        editForm.setData({
-            nama: row.nama,
-            sort_order: row.sort_order,
-            is_active: row.is_active,
-        });
-    }
 
     function submitCreate(e: React.FormEvent) {
         e.preventDefault();
         createForm.transform((data) => ({
-            ...data,
+            nama: data.nama.trim(),
+            kode: data.kode.trim().toUpperCase(),
             sort_order:
-                data.sort_order === '' ? null : Number(data.sort_order),
+                data.sort_order === '' || data.sort_order === null
+                    ? null
+                    : Number(data.sort_order),
+            is_active: Boolean(data.is_active),
         }));
         createForm.post('/admin/katalog/kategori', {
             preserveScroll: true,
@@ -67,18 +187,15 @@ export default function AdminKatalogKategoriIndex({ items }: Props) {
                 createForm.reset();
                 createForm.setData('is_active', true);
             },
+            onError: (errors) => {
+                const first = Object.values(errors)[0];
+                toast.error(
+                    typeof first === 'string'
+                        ? first
+                        : 'Gagal menambah kategori.',
+                );
+            },
             onFinish: () => createForm.transform((d) => d),
-        });
-    }
-
-    function submitEdit(e: React.FormEvent) {
-        e.preventDefault();
-        if (!editing) {
-            return;
-        }
-        editForm.put(`/admin/katalog/kategori/${editing.id}`, {
-            preserveScroll: true,
-            onSuccess: () => setEditing(null),
         });
     }
 
@@ -103,6 +220,32 @@ export default function AdminKatalogKategoriIndex({ items }: Props) {
                     onSubmit={submitCreate}
                     className="bmd-panel flex flex-wrap items-end gap-3 p-4"
                 >
+                    <label className="w-24 text-sm">
+                        <span className="mb-1 block font-semibold text-slate-600">
+                            Kode
+                        </span>
+                        <input
+                            className="bmd-admin-input uppercase"
+                            value={createForm.data.kode}
+                            onChange={(e) =>
+                                createForm.setData(
+                                    'kode',
+                                    e.target.value
+                                        .toUpperCase()
+                                        .replace(/[^A-Z0-9]/gi, ''),
+                                )
+                            }
+                            placeholder="B"
+                            maxLength={5}
+                            required
+                            title="Huruf/angka, diawali huruf (contoh: B, C, PT)"
+                        />
+                        {createForm.errors.kode && (
+                            <span className="mt-1 block text-xs text-red-600">
+                                {createForm.errors.kode}
+                            </span>
+                        )}
+                    </label>
                     <label className="min-w-[12rem] flex-1 text-sm">
                         <span className="mb-1 block font-semibold text-slate-600">
                             Nama kategori baru
@@ -116,6 +259,11 @@ export default function AdminKatalogKategoriIndex({ items }: Props) {
                             placeholder="Contoh: Booth"
                             required
                         />
+                        {createForm.errors.nama && (
+                            <span className="mt-1 block text-xs text-red-600">
+                                {createForm.errors.nama}
+                            </span>
+                        )}
                     </label>
                     <label className="w-28 text-sm">
                         <span className="mb-1 block font-semibold text-slate-600">
@@ -128,11 +276,18 @@ export default function AdminKatalogKategoriIndex({ items }: Props) {
                             onChange={(e) =>
                                 createForm.setData(
                                     'sort_order',
-                                    e.target.value,
+                                    e.target.value === ''
+                                        ? ''
+                                        : Number(e.target.value),
                                 )
                             }
                             placeholder="Auto"
                         />
+                        {createForm.errors.sort_order && (
+                            <span className="mt-1 block text-xs text-red-600">
+                                {createForm.errors.sort_order}
+                            </span>
+                        )}
                     </label>
                     <label className="flex items-center gap-2 pb-2 text-sm font-semibold text-slate-600">
                         <input
@@ -162,6 +317,7 @@ export default function AdminKatalogKategoriIndex({ items }: Props) {
                         <thead>
                             <tr>
                                 <th>Urutan</th>
+                                <th>Kode</th>
                                 <th>Nama</th>
                                 <th>Item</th>
                                 <th>Status</th>
@@ -171,93 +327,17 @@ export default function AdminKatalogKategoriIndex({ items }: Props) {
                         <tbody>
                             {items.map((row) => (
                                 <tr key={row.id}>
-                                    {editing?.id === row.id ? (
-                                        <td colSpan={5}>
-                                            <form
-                                                onSubmit={submitEdit}
-                                                className="flex flex-wrap items-end gap-3 py-1"
-                                            >
-                                                <label className="w-24 text-sm">
-                                                    <span className="mb-1 block font-semibold">
-                                                        Urutan
-                                                    </span>
-                                                    <input
-                                                        type="number"
-                                                        className="bmd-admin-input"
-                                                        value={
-                                                            editForm.data
-                                                                .sort_order
-                                                        }
-                                                        onChange={(e) =>
-                                                            editForm.setData(
-                                                                'sort_order',
-                                                                Number(
-                                                                    e.target
-                                                                        .value,
-                                                                ),
-                                                            )
-                                                        }
-                                                    />
-                                                </label>
-                                                <label className="min-w-[12rem] flex-1 text-sm">
-                                                    <span className="mb-1 block font-semibold">
-                                                        Nama
-                                                    </span>
-                                                    <input
-                                                        className="bmd-admin-input"
-                                                        value={
-                                                            editForm.data.nama
-                                                        }
-                                                        onChange={(e) =>
-                                                            editForm.setData(
-                                                                'nama',
-                                                                e.target.value,
-                                                            )
-                                                        }
-                                                        required
-                                                    />
-                                                </label>
-                                                <label className="flex items-center gap-2 pb-2 text-sm font-semibold">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={
-                                                            editForm.data
-                                                                .is_active
-                                                        }
-                                                        onChange={(e) =>
-                                                            editForm.setData(
-                                                                'is_active',
-                                                                e.target
-                                                                    .checked,
-                                                            )
-                                                        }
-                                                    />
-                                                    Aktif
-                                                </label>
-                                                <button
-                                                    type="submit"
-                                                    className="bmd-btn-primary"
-                                                    disabled={
-                                                        editForm.processing
-                                                    }
-                                                >
-                                                    Simpan
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className="inline-flex items-center gap-1 rounded border px-2 py-1 text-sm"
-                                                    onClick={() =>
-                                                        setEditing(null)
-                                                    }
-                                                >
-                                                    <X className="size-3.5" />
-                                                    Batal
-                                                </button>
-                                            </form>
-                                        </td>
+                                    {editingId === row.id ? (
+                                        <KategoriEditRow
+                                            row={row}
+                                            onCancel={() => setEditingId(null)}
+                                        />
                                     ) : (
                                         <>
                                             <td>{row.sort_order}</td>
+                                            <td className="font-mono font-bold tracking-wide">
+                                                {row.kode}
+                                            </td>
                                             <td className="font-semibold">
                                                 {row.nama}
                                             </td>
@@ -279,7 +359,9 @@ export default function AdminKatalogKategoriIndex({ items }: Props) {
                                                         type="button"
                                                         className="inline-flex items-center gap-1 text-sm text-[#4e73df]"
                                                         onClick={() =>
-                                                            startEdit(row)
+                                                            setEditingId(
+                                                                row.id,
+                                                            )
                                                         }
                                                     >
                                                         <Pencil className="size-3.5" />
@@ -296,6 +378,13 @@ export default function AdminKatalogKategoriIndex({ items }: Props) {
                                                             ) {
                                                                 router.delete(
                                                                     `/admin/katalog/kategori/${row.id}`,
+                                                                    {
+                                                                        onError:
+                                                                            () =>
+                                                                                toast.error(
+                                                                                    'Gagal menghapus kategori.',
+                                                                                ),
+                                                                    },
                                                                 );
                                                             }
                                                         }}
@@ -312,7 +401,7 @@ export default function AdminKatalogKategoriIndex({ items }: Props) {
                             {items.length === 0 && (
                                 <tr>
                                     <td
-                                        colSpan={5}
+                                        colSpan={6}
                                         className="py-6 text-center text-slate-500"
                                     >
                                         Belum ada kategori. Tambahkan di atas.

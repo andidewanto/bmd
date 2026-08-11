@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  *
  * @property int $id
  * @property string $nama
+ * @property string $kode
  * @property int $sort_order
  * @property bool $is_active
  */
@@ -21,6 +22,7 @@ class KatalogKategori extends Model
     /** @var list<string> */
     protected $fillable = [
         'nama',
+        'kode',
         'sort_order',
         'is_active',
     ];

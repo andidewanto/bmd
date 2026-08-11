@@ -13,6 +13,7 @@ export type StoredToko = {
     tipe_toko: string;
     omzet_tahun_ini: number;
     target_naik_dasar_pct: number;
+    is_mock?: boolean;
 };
 
 /** Remark fungsi: baca cart dari sessionStorage. */

@@ -1,5 +1,5 @@
 /**
- * Remark komponen: lightbox detail item katalog + slide foto.
+ * Remark komponen: lightbox detail item katalog + slide foto (lazy-load gallery).
  */
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -18,7 +18,8 @@ export type KatalogLightboxItem = {
     dim_cm?: string | null;
     harga_min?: number | null;
     harga_max?: number | null;
-    photos: { id: number; url: string; is_thumbnail?: boolean }[];
+    foto_url?: string;
+    photos?: { id: number; url: string; is_thumbnail?: boolean }[];
 };
 
 type Props = {
@@ -26,13 +27,74 @@ type Props = {
     onClose: () => void;
 };
 
+type DetailPayload = KatalogLightboxItem & {
+    photos: { id: number; url: string; is_thumbnail?: boolean }[];
+};
+
 /** Remark komponen: modal lightbox di tengah layar. */
 export function KatalogLightbox({ item, onClose }: Props) {
     const [index, setIndex] = useState(0);
+    const [detail, setDetail] = useState<DetailPayload | null>(null);
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         setIndex(0);
-    }, [item?.id]);
+        setDetail(null);
+
+        if (!item) {
+            return;
+        }
+
+        // Remark: jika photos sudah lengkap dari parent, pakai langsung
+        if (item.photos && item.photos.length > 0) {
+            setDetail({ ...item, photos: item.photos });
+            return;
+        }
+
+        // Remark: lazy-load gallery dari endpoint detail
+        let cancelled = false;
+        setLoading(true);
+        fetch(`/katalog/${item.id}/detail`, {
+            headers: { Accept: 'application/json' },
+            credentials: 'same-origin',
+        })
+            .then(async (res) => {
+                if (!res.ok) {
+                    throw new Error('Gagal memuat detail');
+                }
+                return res.json() as Promise<DetailPayload>;
+            })
+            .then((data) => {
+                if (!cancelled) {
+                    setDetail(data);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setDetail({
+                        ...item,
+                        photos: [
+                            {
+                                id: 0,
+                                url:
+                                    item.foto_url ||
+                                    '/assets/katalog/placeholder.svg',
+                                is_thumbnail: true,
+                            },
+                        ],
+                    });
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setLoading(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [item]);
 
     useEffect(() => {
         if (!item) {
@@ -42,30 +104,34 @@ export function KatalogLightbox({ item, onClose }: Props) {
             if (e.key === 'Escape') {
                 onClose();
             }
-            if (e.key === 'ArrowLeft') {
-                setIndex((i) =>
-                    item.photos.length
-                        ? (i - 1 + item.photos.length) % item.photos.length
-                        : 0,
-                );
+            const len = detail?.photos?.length ?? 0;
+            if (e.key === 'ArrowLeft' && len > 0) {
+                setIndex((i) => (i - 1 + len) % len);
             }
-            if (e.key === 'ArrowRight') {
-                setIndex((i) =>
-                    item.photos.length ? (i + 1) % item.photos.length : 0,
-                );
+            if (e.key === 'ArrowRight' && len > 0) {
+                setIndex((i) => (i + 1) % len);
             }
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [item, onClose]);
+    }, [item, onClose, detail?.photos?.length]);
 
     if (!item) {
         return null;
     }
 
-    const photos = item.photos.length
-        ? item.photos
-        : [{ id: 0, url: '/assets/katalog/placeholder.svg' }];
+    const view = detail ?? item;
+    const photos =
+        view.photos && view.photos.length > 0
+            ? view.photos
+            : [
+                  {
+                      id: 0,
+                      url:
+                          item.foto_url ||
+                          '/assets/katalog/placeholder.svg',
+                  },
+              ];
     const current = photos[Math.min(index, photos.length - 1)];
 
     return (
@@ -81,14 +147,18 @@ export function KatalogLightbox({ item, onClose }: Props) {
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="bmd-lightbox-gallery">
-                    <img
-                        src={current.url}
-                        alt={`${item.kode} foto ${index + 1}`}
-                        onError={(e) => {
-                            (e.target as HTMLImageElement).src =
-                                '/assets/katalog/placeholder.svg';
-                        }}
-                    />
+                    {loading && !detail ? (
+                        <p className="text-sm text-white/80">Memuat foto…</p>
+                    ) : (
+                        <img
+                            src={current.url}
+                            alt={`${view.kode} foto ${index + 1}`}
+                            onError={(e) => {
+                                (e.target as HTMLImageElement).src =
+                                    '/assets/katalog/placeholder.svg';
+                            }}
+                        />
+                    )}
                     {photos.length > 1 && (
                         <>
                             <button
@@ -124,7 +194,7 @@ export function KatalogLightbox({ item, onClose }: Props) {
                 <div className="bmd-lightbox-detail">
                     <div className="mb-3 flex items-start justify-between gap-2">
                         <h3>
-                            {item.kode} - {item.nama_branding}
+                            {view.kode} - {view.nama_branding}
                         </h3>
                         <button
                             type="button"
@@ -138,37 +208,37 @@ export function KatalogLightbox({ item, onClose }: Props) {
                     <dl>
                         <div className="bmd-lightbox-row">
                             <dt>No</dt>
-                            <dd>{item.no}</dd>
+                            <dd>{view.no}</dd>
                         </div>
                         <div className="bmd-lightbox-row">
                             <dt>Kode</dt>
-                            <dd>{item.kode}</dd>
+                            <dd>{view.kode}</dd>
                         </div>
                         <div className="bmd-lightbox-row">
                             <dt>Kategori</dt>
-                            <dd>{item.kategori}</dd>
+                            <dd>{view.kategori}</dd>
                         </div>
                         <div className="bmd-lightbox-row">
                             <dt>Nama</dt>
-                            <dd>{item.nama_branding}</dd>
+                            <dd>{view.nama_branding}</dd>
                         </div>
                         <div className="bmd-lightbox-row">
                             <dt>Dimensi</dt>
-                            <dd>{formatDimensi(item.dim_cm)}</dd>
+                            <dd>{formatDimensi(view.dim_cm)}</dd>
                         </div>
                         <div className="bmd-lightbox-row">
                             <dt>Satuan</dt>
-                            <dd>{item.satuan || '—'}</dd>
+                            <dd>{view.satuan || '—'}</dd>
                         </div>
                         <div className="bmd-lightbox-row">
                             <dt>Tipe toko</dt>
-                            <dd>{item.tipe_toko || '—'}</dd>
+                            <dd>{view.tipe_toko || '—'}</dd>
                         </div>
                         <div className="bmd-lightbox-row">
                             <dt>Lifetime</dt>
                             <dd>
-                                {item.lifetime != null
-                                    ? `${item.lifetime} bulan`
+                                {view.lifetime != null
+                                    ? `${view.lifetime} bulan`
                                     : '—'}
                             </dd>
                         </div>
@@ -176,14 +246,14 @@ export function KatalogLightbox({ item, onClose }: Props) {
                             <dt>Harga</dt>
                             <dd>
                                 {formatHargaAngka(
-                                    item.harga_min,
-                                    item.harga_max,
+                                    view.harga_min,
+                                    view.harga_max,
                                 )}
                             </dd>
                         </div>
                         <div className="bmd-lightbox-row">
                             <dt>Spek</dt>
-                            <dd>{item.spek_branding || '—'}</dd>
+                            <dd>{view.spek_branding || '—'}</dd>
                         </div>
                     </dl>
                 </div>

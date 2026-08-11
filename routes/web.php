@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\BrandingStatusController;
 use App\Http\Controllers\Admin\KatalogAdminController;
 use App\Http\Controllers\Admin\KatalogKategoriController;
 use App\Http\Controllers\Admin\MasterDataController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\KatalogController;
 use App\Http\Controllers\PengajuanController;
 use App\Http\Controllers\TokoController;
@@ -17,11 +18,12 @@ use Illuminate\Support\Facades\Route;
 Route::inertia('/', 'welcome')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::inertia('dashboard', 'dashboard')->name('dashboard');
+    Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Remark: modul prioritas — Toko, Katalog, Pengajuan
     Route::get('/toko', [TokoController::class, 'index'])->name('toko.index');
     Route::get('/katalog', [KatalogController::class, 'index'])->name('katalog.index');
+    Route::get('/katalog/{katalog}/detail', [KatalogController::class, 'detail'])->name('katalog.detail');
     Route::get('/pengajuan', [PengajuanController::class, 'index'])->name('pengajuan.index');
     Route::post('/pengajuan', [PengajuanController::class, 'store'])->name('pengajuan.store');
 

@@ -31,6 +31,7 @@ class KatalogKategoriController extends Controller
             ->map(fn (KatalogKategori $k) => [
                 'id' => $k->id,
                 'nama' => $k->nama,
+                'kode' => $k->kode,
                 'sort_order' => $k->sort_order,
                 'is_active' => $k->is_active,
                 'item_count' => KatalogItem::query()->where('kategori', $k->nama)->count(),
@@ -46,8 +47,19 @@ class KatalogKategoriController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        $request->merge([
+            'kode' => mb_strtoupper(trim((string) $request->input('kode', ''))),
+        ]);
+
         $data = $request->validate([
             'nama' => ['required', 'string', 'max:100', 'unique:katalog_kategoris,nama'],
+            'kode' => [
+                'required',
+                'string',
+                'max:5',
+                'regex:/^[A-Z][A-Z0-9]*$/',
+                'unique:katalog_kategoris,kode',
+            ],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
@@ -56,11 +68,14 @@ class KatalogKategoriController extends Controller
 
         KatalogKategori::query()->create([
             'nama' => trim($data['nama']),
+            'kode' => $data['kode'],
             'sort_order' => $sort,
             'is_active' => $request->boolean('is_active', true),
         ]);
 
-        return back()->with('success', 'Kategori ditambahkan.');
+        return redirect()
+            ->route('admin.katalog.kategori.index')
+            ->with('success', 'Kategori ditambahkan.');
     }
 
     /**
@@ -68,6 +83,10 @@ class KatalogKategoriController extends Controller
      */
     public function update(Request $request, KatalogKategori $kategori): RedirectResponse
     {
+        $request->merge([
+            'kode' => mb_strtoupper(trim((string) $request->input('kode', ''))),
+        ]);
+
         $data = $request->validate([
             'nama' => [
                 'required',
@@ -75,17 +94,28 @@ class KatalogKategoriController extends Controller
                 'max:100',
                 Rule::unique('katalog_kategoris', 'nama')->ignore($kategori->id),
             ],
+            'kode' => [
+                'required',
+                'string',
+                'max:5',
+                'regex:/^[A-Z][A-Z0-9]*$/',
+                Rule::unique('katalog_kategoris', 'kode')->ignore($kategori->id),
+            ],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
 
         $oldName = $kategori->nama;
         $newName = trim($data['nama']);
+        $newKode = $data['kode'];
 
-        DB::transaction(function () use ($kategori, $data, $oldName, $newName, $request) {
+        DB::transaction(function () use ($kategori, $data, $oldName, $newName, $newKode, $request) {
             $kategori->update([
                 'nama' => $newName,
-                'sort_order' => $data['sort_order'] ?? $kategori->sort_order,
+                'kode' => $newKode,
+                'sort_order' => array_key_exists('sort_order', $data) && $data['sort_order'] !== null
+                    ? (int) $data['sort_order']
+                    : $kategori->sort_order,
                 'is_active' => $request->has('is_active')
                     ? $request->boolean('is_active')
                     : $kategori->is_active,
@@ -98,7 +128,9 @@ class KatalogKategoriController extends Controller
             }
         });
 
-        return back()->with('success', 'Kategori diperbarui.');
+        return redirect()
+            ->route('admin.katalog.kategori.index')
+            ->with('success', 'Kategori diperbarui.');
     }
 
     /**
@@ -116,6 +148,8 @@ class KatalogKategoriController extends Controller
 
         $kategori->delete();
 
-        return back()->with('success', 'Kategori dihapus.');
+        return redirect()
+            ->route('admin.katalog.kategori.index')
+            ->with('success', 'Kategori dihapus.');
     }
 }

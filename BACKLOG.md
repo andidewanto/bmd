@@ -105,7 +105,62 @@ Changelog & tugas terbuka. Update file ini di **setiap** perubahan kode.
 - [x] Admin hub `/admin/master` + halaman Status Branding (CRUD + drag & drop reorder)
 - [x] Default theme LIGHT
 
+### Checkpoint (sebelum dashboard 2026-08-11)
+- [x] Backup rollback: `version/version134711082026.zip` (~39M)
+- [x] Git branch: `cursor/toko-kpi-master-status-light` @ `87ffbe0`
+
+### Checkpoint (sebelum optimasi katalog 2026-08-11)
+- [x] Backup rollback: `version/version141311082026.zip` (~39M)
+
+### Checkpoint (setelah katalog Rev3 + fix dashboard/kategori 2026-08-11)
+- [x] Backup rollback: `version/version145011082026.zip` (~162M)
+
+### Done (optimasi katalog A–I 2026-08-11)
+- [x] Split komponen katalog (Filters, Card, M2Fields) + page lebih ramping
+- [x] Shared `useFlashToast`, `BmdWarningDialog`, `BmdSortHeader`
+- [x] Estimasi m² pakai `formatRp`; hapus CSS `.katalog-card-no`
+- [x] Split `bmd-katalog.css`; paginasi katalog 12 + lazy gallery `/katalog/{id}/detail`
+- [x] Tombol kosongkan cart hanya di local/debug
+
+### Done (katalog Rev 3 sync 2026-08-11)
+- [x] Import dari `Katalog Branding Avian - Rev 3.xlsx` → `database/data/katalog_items.json`
+- [x] Copy 31 foto cell-image Excel → `public/assets/katalog/ID_*.{png,jpeg}`
+- [x] `KatalogItemSeeder`: upsert item + thumbnail `katalog_item_photos` + sync master kategori (+Tambahan)
+- [x] Seed lokal: 31 item / 31 foto; kategori aktif: Booth, Cat Toko, Event, Printed Material, Rak, Signage, Tambahan
+
+### Done (fix master kategori save 2026-08-11)
+- [x] Form edit kategori dipecah ke komponen terpisah (hindari React Compiler cache `useForm` di dalam `.map`)
+- [x] Tampilkan error validasi + toast; redirect eksplisit ke index setelah store/update/destroy
+
+### Done (fix dashboard putih 2026-08-11)
+- [x] Pindah `Toaster` ke dalam `AppSidebarLayout` (bukan `withApp`) agar error toast tidak blank seluruh app
+- [x] Sonner theme pakai `resolvedAppearance` (light/dark)
+- [x] `DevAuthBypass` di priority list sebelum `Authenticate`
+
+### Done (form tambah item katalog 2026-08-11)
+- [x] No & Kode otomatis (max no+1; prefix kategori + NN)
+- [x] Usia Branding dropdown 12/24/26/48; Detail Branding label
+- [x] Dimensi 3 field (Tinggi/Panjang/Lebar); harga tunggal (min=max)
+- [x] Tombol Batalkan + Buat item berdampingan di tengah
+
+### Done (kode huruf master kategori 2026-08-11)
+- [x] Kolom `katalog_kategoris.kode` (unik) untuk prefix pengkodean item
+- [x] Admin master kategori: input/tampil Kode (create + edit + tabel)
+- [x] Form item: `kategoriPrefix()` baca dari master `kode` (fallback huruf pertama nama)
+- [x] Seeder sync kategori mengisi `kode` bila masih kosong (B/C/E/P/R/S/T)
+- [x] Feature test store/update/duplikat kode
+
+### Done (dashboard KPI nasional 2026-08-11)
+- [x] RINGKASAN NASIONAL 5 KPI card (asumsi Total Toko 250, budget 1000 jt)
+- [x] Formula: terpasang/asumsi, avg cost ratio, pencapaian 70.5% (sementara), peremajaan via `installed_at`+lifetime, prospek=asumsi−terpasang
+- [x] Progress bar Realisasi Budget = Σ total_cost / alokasi 1 tahun (1000 jt)
+- [x] Tabel Kinerja Per Area (area 2-digit, toko terpasang, avg omzet, cost ratio)
+- [x] Kinerja Per Area: paginasi 10 + sort ASC/DESC per kolom
+
 ### Open / Next
+- [ ] Dashboard: formula resmi Avg Pencapaian Target (+ per area)
+- [ ] Dashboard: formula Growth Omzet per area
+- [ ] Dashboard: peremajaan berbasis tanggal pemasangan item (bukan proxy branding)
 - [ ] Sync sample branding + nama_toko + master status ke production `bmd.andizero.my.id`
 - [ ] Modul Brandings (detail / monitoring status & history)
 - [ ] History status toko pada kartu katalog (pernah diajukan / terpasang)

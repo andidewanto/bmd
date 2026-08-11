@@ -1,0 +1,10 @@
+Opsi Kategori Baru (isi di kolom 1 CSV):
+- Booth
+- Cat Toko
+- Event
+- Printed Material
+- Rak
+- Signage
+- Tambahan
+
+(Opsional) bisa juga tulis: (belum ada) / (tidak dipakai)

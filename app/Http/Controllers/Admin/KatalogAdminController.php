@@ -44,10 +44,21 @@ class KatalogAdminController extends Controller
      */
     public function create(): Response
     {
+        $kategoriOptions = $this->kategoriOptions();
+        $defaultKategori = $kategoriOptions[0] ?? '';
+
         return Inertia::render('admin/katalog/form', [
             'item' => null,
-            'kategoriOptions' => $this->kategoriOptions(),
+            'kategoriOptions' => $kategoriOptions,
             'satuanOptions' => ['Unit', 'm2'],
+            'usiaBrandingOptions' => [12, 24, 26, 48],
+            'defaults' => [
+                'no' => $this->nextNo(),
+                'kode' => $defaultKategori !== ''
+                    ? $this->nextKodeForKategori($defaultKategori)
+                    : '',
+            ],
+            'nextKodeByKategori' => $this->nextKodeByKategoriMap($kategoriOptions),
         ]);
     }
 
@@ -56,7 +67,25 @@ class KatalogAdminController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $data = collect($this->validated($request))->except('foto')->all();
+        $data = collect($this->validated($request))->except(['foto', 'harga', 'dim_tinggi', 'dim_panjang', 'dim_lebar'])->all();
+
+        // Remark: harga tunggal → isi min=max (kompatibel pengajuan lama)
+        if ($request->filled('harga')) {
+            $harga = (float) $request->input('harga');
+            $data['harga_min'] = $harga;
+            $data['harga_max'] = $harga;
+        }
+
+        $data['dim_cm'] = $this->composeDimCm($request);
+        $data['satuan'] = $this->normalizeSatuan($data['satuan'] ?? null);
+
+        // Remark: pastikan no/kode otomatis bila kosong / bentrok
+        if (empty($data['no'])) {
+            $data['no'] = $this->nextNo();
+        }
+        if (empty($data['kode']) && ! empty($data['kategori'])) {
+            $data['kode'] = $this->nextKodeForKategori((string) $data['kategori']);
+        }
 
         $item = DB::transaction(function () use ($request, $data) {
             $item = KatalogItem::query()->create($data);
@@ -91,6 +120,9 @@ class KatalogAdminController extends Controller
             'item' => $this->mapItem($katalog),
             'kategoriOptions' => $options,
             'satuanOptions' => ['Unit', 'm2'],
+            'usiaBrandingOptions' => [12, 24, 26, 48],
+            'defaults' => null,
+            'nextKodeByKategori' => [],
         ]);
     }
 
@@ -99,7 +131,22 @@ class KatalogAdminController extends Controller
      */
     public function update(Request $request, KatalogItem $katalog): RedirectResponse
     {
-        $data = collect($this->validated($request, $katalog->id))->except('foto')->all();
+        $data = collect($this->validated($request, $katalog->id))
+            ->except(['foto', 'harga', 'dim_tinggi', 'dim_panjang', 'dim_lebar'])
+            ->all();
+
+        if ($request->filled('harga')) {
+            $harga = (float) $request->input('harga');
+            $data['harga_min'] = $harga;
+            $data['harga_max'] = $harga;
+        } elseif ($request->exists('harga') && $request->input('harga') === '') {
+            $data['harga_min'] = null;
+            $data['harga_max'] = null;
+        }
+
+        $data['dim_cm'] = $this->composeDimCm($request);
+        $data['satuan'] = $this->normalizeSatuan($data['satuan'] ?? null);
+
         $katalog->update($data);
 
         return redirect()
@@ -216,6 +263,15 @@ class KatalogAdminController extends Controller
             $uniqueKode .= ','.$ignoreId;
         }
 
+        $usiaOptions = [12, 24, 26, 48];
+        // Remark: edit boleh pertahankan nilai usia lama di luar daftar (mis. 36)
+        if ($ignoreId !== null) {
+            $currentLifetime = KatalogItem::query()->whereKey($ignoreId)->value('lifetime');
+            if ($currentLifetime !== null) {
+                $usiaOptions[] = (int) $currentLifetime;
+            }
+        }
+
         return $request->validate([
             'no' => ['required', 'integer', 'min:1'],
             'kode' => ['required', 'string', 'max:20', $uniqueKode],
@@ -229,12 +285,112 @@ class KatalogAdminController extends Controller
             'spek_branding' => ['nullable', 'string'],
             'satuan' => ['required', Rule::in(['Unit', 'm2'])],
             'tipe_toko' => ['nullable', 'string', 'max:50'],
-            'lifetime' => ['nullable', 'integer', 'min:0'],
-            'dim_cm' => ['nullable', 'string', 'max:100'],
+            'lifetime' => ['nullable', 'integer', Rule::in(array_values(array_unique($usiaOptions)))],
+            'dim_tinggi' => ['nullable', 'string', 'max:40'],
+            'dim_panjang' => ['nullable', 'string', 'max:40'],
+            'dim_lebar' => ['nullable', 'string', 'max:40'],
+            'harga' => ['nullable', 'numeric', 'min:0'],
             'harga_min' => ['nullable', 'numeric', 'min:0'],
             'harga_max' => ['nullable', 'numeric', 'min:0'],
             'foto' => ['nullable', 'image', 'max:10240'],
         ]);
+    }
+
+    /**
+     * Remark fungsi: nomor urut berikutnya = max(no) + 1.
+     */
+    protected function nextNo(): int
+    {
+        return (int) KatalogItem::query()->max('no') + 1;
+    }
+
+    /**
+     * Remark fungsi: prefix kode dari master kategori (kolom kode), fallback huruf pertama nama.
+     */
+    protected function kategoriPrefix(string $kategori): string
+    {
+        $master = KatalogKategori::query()
+            ->where('nama', $kategori)
+            ->value('kode');
+
+        if (is_string($master) && trim($master) !== '') {
+            return mb_strtoupper(trim($master));
+        }
+
+        $trimmed = trim($kategori);
+        if ($trimmed === '') {
+            return 'X';
+        }
+
+        return mb_strtoupper(mb_substr($trimmed, 0, 1));
+    }
+
+    /**
+     * Remark fungsi: kode berikutnya untuk kategori, format {PREFIX}{NN} (B01, T02, …).
+     */
+    protected function nextKodeForKategori(string $kategori): string
+    {
+        $prefix = $this->kategoriPrefix($kategori);
+        $max = 0;
+
+        KatalogItem::query()
+            ->where('kode', 'like', $prefix.'%')
+            ->pluck('kode')
+            ->each(function (string $kode) use ($prefix, &$max) {
+                if (preg_match('/^'.preg_quote($prefix, '/').'(\d+)$/', $kode, $m) === 1) {
+                    $max = max($max, (int) $m[1]);
+                }
+            });
+
+        return $prefix.str_pad((string) ($max + 1), 2, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Remark fungsi: peta kategori → kode berikutnya (untuk ganti dropdown di form create).
+     *
+     * @param  list<string>  $kategoriOptions
+     * @return array<string, string>
+     */
+    protected function nextKodeByKategoriMap(array $kategoriOptions): array
+    {
+        $map = [];
+        foreach ($kategoriOptions as $nama) {
+            $map[$nama] = $this->nextKodeForKategori($nama);
+        }
+
+        return $map;
+    }
+
+    /**
+     * Remark fungsi: gabung 3 field dimensi → string dim_cm "T x P x L".
+     */
+    protected function composeDimCm(Request $request): ?string
+    {
+        $parts = [
+            trim((string) $request->input('dim_tinggi', '')),
+            trim((string) $request->input('dim_panjang', '')),
+            trim((string) $request->input('dim_lebar', '')),
+        ];
+        $parts = array_values(array_filter($parts, fn (string $p) => $p !== ''));
+
+        if ($parts === []) {
+            return null;
+        }
+
+        return implode(' x ', $parts);
+    }
+
+    /**
+     * Remark fungsi: opsi dropdown kategori dari master aktif.
+     *
+     * @return list<string>
+     */
+    protected function kategoriOptions(): array
+    {
+        return KatalogKategori::query()
+            ->activeOrdered()
+            ->pluck('nama')
+            ->all();
     }
 
     /**
@@ -277,19 +433,6 @@ class KatalogAdminController extends Controller
         if (str_starts_with($path, 'katalog/') && Storage::disk('public')->exists($path)) {
             Storage::disk('public')->delete($path);
         }
-    }
-
-    /**
-     * Remark fungsi: opsi dropdown kategori dari master aktif.
-     *
-     * @return list<string>
-     */
-    protected function kategoriOptions(): array
-    {
-        return KatalogKategori::query()
-            ->activeOrdered()
-            ->pluck('nama')
-            ->all();
     }
 
     /**

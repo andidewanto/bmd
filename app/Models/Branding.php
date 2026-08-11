@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $total_cost
  * @property string|null $average_omzet
  * @property string|null $description
+ * @property \Illuminate\Support\Carbon|null $installed_at
  */
 class Branding extends Model
 {
@@ -41,6 +42,7 @@ class Branding extends Model
         'pb_no',
         'created_at',
         'updated_at',
+        'installed_at',
     ];
 
     /**
@@ -58,6 +60,7 @@ class Branding extends Model
             'branding_design_team_id' => 'integer',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
+            'installed_at' => 'datetime',
         ];
     }
 

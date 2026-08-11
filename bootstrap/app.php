@@ -3,6 +3,7 @@
 use App\Http\Middleware\DevAuthBypass;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
+use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -18,14 +19,19 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
-        // Remark: DevAuthBypass di append (setelah StartSession) agar Auth::login tersimpan di session,
-        // dan tetap sebelum route middleware `auth`.
+        // Remark: DevAuthBypass di append (setelah StartSession) agar Auth::login tersimpan di session.
         $middleware->web(append: [
             DevAuthBypass::class,
             HandleAppearance::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);
+
+        // Remark: pastikan bypass jalan SEBELUM auth (priority sort Laravel bisa menggeser urutan)
+        $middleware->prependToPriorityList(
+            before: Authenticate::class,
+            prepend: DevAuthBypass::class,
+        );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

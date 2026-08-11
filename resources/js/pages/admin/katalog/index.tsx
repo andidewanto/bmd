@@ -1,10 +1,9 @@
 /**
  * Remark page: Admin — daftar item katalog.
  */
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
-import { useEffect } from 'react';
-import { toast } from 'sonner';
+import { useFlashToast } from '@/hooks/use-flash-toast';
 import { formatHargaAngka } from '@/lib/format';
 import { dashboard } from '@/routes';
 
@@ -23,18 +22,7 @@ type Item = {
 type Props = { items: Item[] };
 
 export default function AdminKatalogIndex({ items }: Props) {
-    const { flash } = usePage().props as {
-        flash?: { success?: string; error?: string };
-    };
-
-    useEffect(() => {
-        if (flash?.success) {
-            toast.success(flash.success);
-        }
-        if (flash?.error) {
-            toast.error(flash.error);
-        }
-    }, [flash?.success, flash?.error]);
+    useFlashToast();
 
     return (
         <>
