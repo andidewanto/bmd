@@ -18,7 +18,7 @@ Aplikasi monitoring & pengajuan branding toko (Avian Brands).
 ### Clone & install
 
 ```bash
-git clone <URL_REPO_INI>.git bmd
+git clone https://github.com/andidewanto/bmd.git
 cd bmd
 
 # Satu perintah setup (install deps, .env, key, migrate, npm build)

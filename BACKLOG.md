@@ -81,6 +81,12 @@ Changelog & tugas terbuka. Update file ini di **setiap** perubahan kode.
 - [x] Item m²: estimasi harga di bawah dimensi = (tinggi×lebar/10000)×harga_max
 - [x] Container daftar kartu soft-grey + drop shadow pada card item
 
+### Done (repo + package 2026-08-11)
+- [x] Git init + push private repo: https://github.com/andidewanto/bmd
+- [x] README setup untuk tim + `composer run setup` (sqlite touch, migrate, storage:link, build)
+- [x] Script zip deployable: `bin/make-deploy-package.sh` → `dist/bmd-source-*.zip`
+- [ ] Re-add `.github/workflows/tests.yml` setelah `gh auth refresh -s workflow`
+
 ### Open / Next
 - [ ] Modul Brandings (detail history per toko)
 - [ ] Tampilkan ulang Nama Toko setelah ada sumber data master yang valid
