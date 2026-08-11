@@ -4,19 +4,39 @@
 import { Head, router } from '@inertiajs/react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
-import { formatRp } from '@/lib/format';
+import { formatPct, formatRp } from '@/lib/format';
 import { dashboard } from '@/routes';
 
 type TokoRow = {
     no: number;
     customer_id: string;
+    nama: string | null;
     cabang: string;
     avg_omzet: number | null;
+    total_cost: number;
     statuses: string[];
     branding_count: number;
 };
 
-type SortKey = 'no' | 'customer_id' | 'cabang' | 'avg_omzet' | 'status';
+type TokoKpi = {
+    scope_label: string;
+    toko_terbranding: number;
+    total_toko: number;
+    toko_terbranding_pct: number;
+    total_cost: number;
+    total_avg_omzet: number;
+    cost_ratio_pct: number | null;
+};
+
+type SortKey =
+    | 'no'
+    | 'customer_id'
+    | 'nama'
+    | 'cabang'
+    | 'avg_omzet'
+    | 'total_cost'
+    | 'branding_count'
+    | 'status';
 
 type Props = {
     rows: TokoRow[];
@@ -29,6 +49,7 @@ type Props = {
     };
     cabangList: { cabang: string; toko_count: number }[];
     statusList: { status: string; toko_count: number }[];
+    kpi: TokoKpi;
     pagination: {
         current_page: number;
         last_page: number;
@@ -116,6 +137,7 @@ export default function TokoIndex({
     filters,
     cabangList,
     statusList,
+    kpi,
     pagination,
 }: Props) {
     const [search, setSearch] = useState(filters.q || '');
@@ -150,6 +172,8 @@ export default function TokoIndex({
         applyFilters({ sort: column, order, page: 1 });
     }
 
+    const terbrandingLabel = `${kpi.toko_terbranding}/${kpi.total_toko} - ${formatPct(kpi.toko_terbranding_pct)}`;
+
     return (
         <>
             <Head title="Toko" />
@@ -158,7 +182,48 @@ export default function TokoIndex({
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <h1 className="text-xl font-bold text-[#5a5c69]">Toko</h1>
                     <div className="text-sm text-slate-500">
-                        Total {pagination.total} toko
+                        Total {pagination.total} toko · {kpi.scope_label}
+                    </div>
+                </div>
+
+                {/* Remark section: KPI cards (mengikuti filter aktif) */}
+                <div className="bmd-stat-grid is-4">
+                    <div className="bmd-stat-card is-success">
+                        <div className="bmd-stat-label">Toko Terbranding</div>
+                        <div className="bmd-stat-value">{terbrandingLabel}</div>
+                        <div className="bmd-stat-hint">
+                            Toko selesai branding / total toko ·{' '}
+                            {kpi.scope_label}
+                        </div>
+                    </div>
+                    <div className="bmd-stat-card is-warning">
+                        <div className="bmd-stat-label">
+                            Cost Ratio · {kpi.scope_label}
+                        </div>
+                        <div className="bmd-stat-value">
+                            {formatPct(kpi.cost_ratio_pct, 2)}
+                        </div>
+                        <div className="bmd-stat-hint">
+                            Total cost branding / total average omzet
+                        </div>
+                    </div>
+                    <div className="bmd-stat-card is-muted">
+                        <div className="bmd-stat-label">KPI Cadangan</div>
+                        <div className="bmd-stat-value text-base text-slate-400">
+                            —
+                        </div>
+                        <div className="bmd-stat-hint">
+                            Belum ditentukan — placeholder untuk metrik berikutnya
+                        </div>
+                    </div>
+                    <div className="bmd-stat-card is-muted">
+                        <div className="bmd-stat-label">KPI Cadangan</div>
+                        <div className="bmd-stat-value text-base text-slate-400">
+                            —
+                        </div>
+                        <div className="bmd-stat-hint">
+                            Belum ditentukan — placeholder untuk metrik berikutnya
+                        </div>
                     </div>
                 </div>
 
@@ -169,7 +234,7 @@ export default function TokoIndex({
                         <div className="bmd-filters">
                             <input
                                 type="search"
-                                placeholder="Cari cust id / status…"
+                                placeholder="Cari cust id / nama toko / status…"
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 onKeyDown={(e) => {
@@ -231,6 +296,13 @@ export default function TokoIndex({
                                         onSort={handleSort}
                                     />
                                     <SortHeader
+                                        label="Nama Toko"
+                                        column="nama"
+                                        sort={filters.sort}
+                                        order={filters.order}
+                                        onSort={handleSort}
+                                    />
+                                    <SortHeader
                                         label="Cabang"
                                         column="cabang"
                                         sort={filters.sort}
@@ -240,6 +312,22 @@ export default function TokoIndex({
                                     <SortHeader
                                         label="AVG Omzet"
                                         column="avg_omzet"
+                                        sort={filters.sort}
+                                        order={filters.order}
+                                        align="right"
+                                        onSort={handleSort}
+                                    />
+                                    <SortHeader
+                                        label="Total Cost Branding"
+                                        column="total_cost"
+                                        sort={filters.sort}
+                                        order={filters.order}
+                                        align="right"
+                                        onSort={handleSort}
+                                    />
+                                    <SortHeader
+                                        label="Jumlah Branding"
+                                        column="branding_count"
                                         sort={filters.sort}
                                         order={filters.order}
                                         align="right"
@@ -258,7 +346,7 @@ export default function TokoIndex({
                                 {rows.length === 0 ? (
                                     <tr>
                                         <td
-                                            colSpan={5}
+                                            colSpan={8}
                                             className="px-4 py-8 text-center text-slate-500"
                                         >
                                             Tidak ada data toko.
@@ -271,6 +359,7 @@ export default function TokoIndex({
                                             <td className="font-semibold">
                                                 {row.customer_id}
                                             </td>
+                                            <td>{row.nama || '—'}</td>
                                             <td>
                                                 <span className="bmd-badge-primary">
                                                     {row.cabang}
@@ -278,6 +367,12 @@ export default function TokoIndex({
                                             </td>
                                             <td className="text-right font-medium">
                                                 {formatRp(row.avg_omzet)}
+                                            </td>
+                                            <td className="text-right font-medium">
+                                                {formatRp(row.total_cost)}
+                                            </td>
+                                            <td className="text-right font-medium">
+                                                {row.branding_count}
                                             </td>
                                             <td>
                                                 <div className="flex flex-wrap gap-1">

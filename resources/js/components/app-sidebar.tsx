@@ -1,13 +1,13 @@
 import { Link } from '@inertiajs/react';
 import {
     BookOpen,
+    Database,
     FolderGit2,
     LayoutGrid,
     Package,
     Settings2,
     ShoppingCart,
     Store,
-    Tags,
 } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
@@ -27,7 +27,7 @@ import type { NavItem } from '@/types';
 
 /**
  * Remark komponen: sidebar utama BMD.
- * Modul: Dashboard, Toko, Katalog, Pengajuan, Admin Katalog.
+ * Modul: Dashboard, Toko, Katalog, Pengajuan, Admin Katalog, Master Data.
  */
 const mainNavItems: NavItem[] = [
     {
@@ -56,9 +56,9 @@ const mainNavItems: NavItem[] = [
         icon: Settings2,
     },
     {
-        title: 'Kategori Katalog',
-        href: '/admin/katalog/kategori',
-        icon: Tags,
+        title: 'Master Data',
+        href: '/admin/master',
+        icon: Database,
     },
 ];
 

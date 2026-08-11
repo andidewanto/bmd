@@ -28,6 +28,20 @@ export function formatRp(value: number | null | undefined): string {
     return `Rp ${new Intl.NumberFormat('id-ID').format(Math.round(value))}`;
 }
 
+/** Remark fungsi: format persen (id-ID), null → em dash. */
+export function formatPct(
+    value: number | null | undefined,
+    digits = 1,
+): string {
+    if (value == null || Number.isNaN(value)) {
+        return '—';
+    }
+    return `${new Intl.NumberFormat('id-ID', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: digits,
+    }).format(value)}%`;
+}
+
 /** Remark fungsi: tampilan dimensi katalog. */
 export function formatDimensi(dimCm: string | null | undefined): string {
     const dim = (dimCm ?? '').trim();

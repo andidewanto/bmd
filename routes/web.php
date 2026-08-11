@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Controllers\Admin\BrandingStatusController;
 use App\Http\Controllers\Admin\KatalogAdminController;
 use App\Http\Controllers\Admin\KatalogKategoriController;
+use App\Http\Controllers\Admin\MasterDataController;
 use App\Http\Controllers\KatalogController;
 use App\Http\Controllers\PengajuanController;
 use App\Http\Controllers\TokoController;
@@ -22,6 +24,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/katalog', [KatalogController::class, 'index'])->name('katalog.index');
     Route::get('/pengajuan', [PengajuanController::class, 'index'])->name('pengajuan.index');
     Route::post('/pengajuan', [PengajuanController::class, 'store'])->name('pengajuan.store');
+
+    // Remark: hub master data (status branding, kategori, …)
+    Route::prefix('admin/master')->name('admin.master.')->group(function () {
+        Route::get('/', [MasterDataController::class, 'index'])->name('index');
+
+        Route::get('/status-branding', [BrandingStatusController::class, 'index'])->name('status.index');
+        Route::post('/status-branding', [BrandingStatusController::class, 'store'])->name('status.store');
+        Route::post('/status-branding/reorder', [BrandingStatusController::class, 'reorder'])->name('status.reorder');
+        Route::put('/status-branding/{statusBranding}', [BrandingStatusController::class, 'update'])->name('status.update');
+        Route::delete('/status-branding/{statusBranding}', [BrandingStatusController::class, 'destroy'])->name('status.destroy');
+    });
 
     // Remark: admin katalog (CRUD + foto/thumbnail + master kategori)
     Route::prefix('admin/katalog')->name('admin.katalog.')->group(function () {

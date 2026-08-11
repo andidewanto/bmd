@@ -115,6 +115,25 @@ php artisan db:seed
 Repo (private): https://github.com/andidewanto/bmd  
 Undang kolaborator: GitHub → **Settings → Collaborators** (atau Organization team).
 
+### Production — https://bmd.andizero.my.id
+
+Sudah di-deploy di VPS `adwzero` (`/srv/apps/web/bmd`, Caddy + PHP 8.4-FPM).
+
+Redeploy dari lokal:
+
+```bash
+./bin/deploy-andizero.sh
+```
+
+Login production (bypass **mati**):
+
+| Email | Password |
+|-------|----------|
+| `test@example.com` | `password` |
+| `dev@bmd.local` | `password` |
+
+**Ganti password segera** setelah tim masuk.
+
 ### Opsi B — Zip source (tanpa `vendor` / `node_modules`)
 
 Zip dibuat lewat script:

@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
  *
  * @property int $id
  * @property string|null $customer_id
+ * @property string|null $nama_toko
  * @property string|null $status
  * @property string|null $total_cost
  * @property string|null $average_omzet
@@ -26,6 +27,7 @@ class Branding extends Model
     protected $fillable = [
         'id',
         'customer_id',
+        'nama_toko',
         'created_by',
         'status',
         'total_cost',

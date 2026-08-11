@@ -34,11 +34,11 @@ Changelog & tugas terbuka. Update file ini di **setiap** perubahan kode.
 ### Done (modul Toko 2026-08-11)
 - [x] Tabel `brandings` + seed 100 baris dari BMD2
 - [x] Sync master `tokos` dari agregasi brandings
-- [x] Halaman `/toko`: NO | Cust Id | Nama Toko | Cabang | AVG Omzet | Status Branding
+- [x] Halaman `/toko`: NO | Cust Id | Nama Toko | Cabang | AVG Omzet | Total Cost | Jumlah Branding | Status Branding
 - [x] Filter cabang + search + pagination
 - [x] Nav sidebar: Toko
 - [x] Sort ASC/DESC di setiap header kolom tabel Toko
-- [x] Sembunyikan kolom Nama Toko (data description BMD2 belum valid)
+- [x] Sembunyikan kolom Nama Toko (sementara; diganti sample Excel 2026-08-03)
 - [x] Filter Status Branding di sebelah filter Cabang (halaman Toko)
 - [x] Logo apps + favicon diganti Avian Brands (`public/images/branding/`, `favicon.ico`)
 - [x] Pengajuan: hapus dropdown toko; jumlah item + total biaya pindah ke panel item; kanan khusus omzet/proyeksi
@@ -87,15 +87,32 @@ Changelog & tugas terbuka. Update file ini di **setiap** perubahan kode.
 - [x] Script zip deployable: `bin/make-deploy-package.sh` → `dist/bmd-source-*.zip`
 - [ ] Re-add `.github/workflows/tests.yml` setelah `gh auth refresh -s workflow`
 
+### Done (production deploy 2026-08-11)
+- [x] Live: https://bmd.andizero.my.id (Caddy TLS, PHP 8.4-FPM + WebP)
+- [x] Path server: `/srv/apps/web/bmd`, SQLite + seed katalog/toko/branding
+- [x] Script redeploy: `bin/deploy-andizero.sh`
+- [x] `BMD_AUTH_BYPASS=false` di production
+
+### Done (branding sample + nama toko 2026-08-11)
+- [x] Update `brandings.json` dari Excel sample 2026-08-03 (100 baris + Nama Toko)
+- [x] Kolom `brandings.nama_toko` + sync ke master `tokos.nama`
+- [x] Halaman Toko: tampilkan kembali kolom Nama Toko (sort + search)
+- [x] Halaman Toko: kolom Total Cost Branding (SUM) + Jumlah Branding (COUNT) per toko
+- [x] Halaman Toko: 4 KPI card (Terbranding, Cost Ratio, 2 placeholder) mengikuti filter
+
+### Done (master data + theme 2026-08-11)
+- [x] Master `branding_statuses` dari unik `change_status` log BMD (10 status + urutan proses)
+- [x] Admin hub `/admin/master` + halaman Status Branding (CRUD + drag & drop reorder)
+- [x] Default theme LIGHT
+
 ### Open / Next
-- [ ] Modul Brandings (detail history per toko)
-- [ ] Tampilkan ulang Nama Toko setelah ada sumber data master yang valid
-- [ ] (Opsional) MySQL untuk staging/shared team — tetap didukung via `.env`
-- [ ] Modul Brandings (monitoring status/history)
+- [ ] Sync sample branding + nama_toko + master status ke production `bmd.andizero.my.id`
+- [ ] Modul Brandings (detail / monitoring status & history)
 - [ ] History status toko pada kartu katalog (pernah diajukan / terpasang)
 - [ ] Dashboard ringkasan
 - [ ] Import/sync SQL BMD2 production-ready
 - [ ] Role/permission (sales vs admin)
+- [ ] (Opsional) MySQL untuk staging/shared team — tetap didukung via `.env`
 - [ ] Test feature Katalog + Pengajuan (PHPUnit / Pest)
 
 ### Notes

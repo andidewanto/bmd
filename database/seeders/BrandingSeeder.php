@@ -35,6 +35,7 @@ class BrandingSeeder extends Seeder
                 ['id' => $row['id']],
                 [
                     'customer_id' => $row['customer_id'] ?? null,
+                    'nama_toko' => $row['nama_toko'] ?? null,
                     'created_by' => $row['created_by'] ?? null,
                     'status' => $row['status'] ?? null,
                     'total_cost' => $row['total_cost'] ?? null,
@@ -70,11 +71,22 @@ class BrandingSeeder extends Seeder
         foreach ($grouped as $customerId => $items) {
             $customerId = (string) $customerId;
             $avgOmzet = (float) $items->avg('average_omzet');
+
+            // Remark: prioritas nama_toko resmi dari sample; fallback parse description
             $nama = null;
             foreach ($items as $item) {
-                $nama = Branding::namaFromDescription($item->description);
-                if ($nama !== null) {
+                $candidate = trim((string) ($item->nama_toko ?? ''));
+                if ($candidate !== '') {
+                    $nama = $candidate;
                     break;
+                }
+            }
+            if ($nama === null) {
+                foreach ($items as $item) {
+                    $nama = Branding::namaFromDescription($item->description);
+                    if ($nama !== null) {
+                        break;
+                    }
                 }
             }
 
