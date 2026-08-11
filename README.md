@@ -106,8 +106,14 @@ Lihat perubahan & rencana di [`BACKLOG.md`](./BACKLOG.md).
 ### Opsi A — Clone dari GitHub (disarankan)
 
 ```bash
-git clone <URL_REPO> && cd bmd && composer run setup && php artisan storage:link && php artisan db:seed
+git clone https://github.com/andidewanto/bmd.git
+cd bmd
+composer run setup
+php artisan db:seed
 ```
+
+Repo (private): https://github.com/andidewanto/bmd  
+Undang kolaborator: GitHub → **Settings → Collaborators** (atau Organization team).
 
 ### Opsi B — Zip source (tanpa `vendor` / `node_modules`)
 
